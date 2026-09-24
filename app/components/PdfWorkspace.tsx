@@ -23,9 +23,12 @@ import { Icon } from "./Icon";
 import { Jp } from "./Jp";
 import { api, type Comment } from "../lib/client/api";
 import type { Pending } from "./CommentPanel";
+import { installTouchZoom } from "../lib/client/touch-zoom";
 
 export type PdfWorkspaceHandle = {
   clearSelection(): void;
+  prepareSelection(): void;
+  finishSelection(): void;
   selectComment(comment: Comment): void;
 };
 
@@ -56,10 +59,34 @@ export function PdfWorkspace({
   ref: Ref<PdfWorkspaceHandle>;
 }) {
   const utils = useRef<PdfHighlighterUtils | null>(null);
+  const stage = useRef<HTMLElement>(null);
+  const pinching = useRef(false);
+  const confirmingSelection = useRef(false);
+  const preparedSelection = useRef<Range | null>(null);
   const [areaMode, setAreaMode] = useState(false);
   const [scale, setScale] = useState<PdfScaleValue>("page-width");
   const [zoom, setZoom] = useState<number | null>(null);
   const pdfSource = usePdfSource(versionId);
+
+  function rememberZoom(next: number) {
+    // PDF側の変更も保存する。表示だけ更新するとResizeObserverが古い倍率へ戻してしまう。
+    setScale(next);
+    setZoom(next);
+  }
+
+  useEffect(() => {
+    if (!stage.current) return;
+    return installTouchZoom(stage.current, {
+      viewer: () => utils.current?.getViewer(),
+      onZoom: (next) => {
+        setScale(next);
+        setZoom(next);
+      },
+      onActive: (active) => {
+        pinching.current = active;
+      },
+    });
+  }, [versionId]);
   const highlights = useMemo<ReviewHighlight[]>(
     () =>
       comments
@@ -82,35 +109,13 @@ export function PdfWorkspace({
     [comments, activeId, onSelect, pending],
   );
 
-  // タッチ端末では長押しで選んだ後に pointerup が来ないため、選択が落ち着いたら確定の合図を送る
-  useEffect(() => {
-    if (!window.matchMedia("(pointer: coarse)").matches) return;
-    let timer: number | undefined;
-    const onChange = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const sel = document.getSelection();
-        const container = document.querySelector(".stage .PdfHighlighter");
-        if (
-          !sel ||
-          sel.isCollapsed ||
-          !container ||
-          !container.contains(sel.anchorNode)
-        )
-          return;
-        container.dispatchEvent(
-          new PointerEvent("pointerup", { bubbles: true }),
-        );
-      }, 700);
-    };
-    document.addEventListener("selectionchange", onChange);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("selectionchange", onChange);
-    };
-  }, []);
-
   function handleSelection(selection: PdfSelection) {
+    if (pinching.current) return;
+    if (
+      window.matchMedia("(pointer: coarse)").matches &&
+      !confirmingSelection.current
+    )
+      return;
     const ghost = selection.makeGhostHighlight();
     onPending({
       kind: ghost.type === "area" ? "area" : "text",
@@ -127,7 +132,7 @@ export function PdfWorkspace({
 
   function zoomBy(factor: number) {
     const current = zoom ?? utils.current?.getViewer()?.currentScale ?? 1;
-    const next = Math.min(4, Math.max(0.4, current * factor));
+    const next = Math.min(10, Math.max(0.25, current * factor));
     setScale(next);
     setZoom(next);
   }
@@ -135,11 +140,44 @@ export function PdfWorkspace({
   useImperativeHandle(
     ref,
     () => ({
+      prepareSelection() {
+        // ボタンへのフォーカス移動でOSが選択を消す前に、今回の操作の範囲を保存する。
+        const selection = window.getSelection();
+        preparedSelection.current =
+          selection &&
+          !selection.isCollapsed &&
+          selection.rangeCount &&
+          stage.current?.contains(
+            selection.getRangeAt(0).commonAncestorContainer,
+          )
+            ? selection.getRangeAt(0).cloneRange()
+            : null;
+      },
+      finishSelection() {
+        // 選択の確定は既存のコメント欄を開く操作でのみ行う。
+        const range = preparedSelection.current;
+        preparedSelection.current = null;
+        if (range && stage.current?.contains(range.commonAncestorContainer)) {
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+        confirmingSelection.current = true;
+        try {
+          stage.current
+            ?.querySelector(".PdfHighlighter")
+            ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+        } finally {
+          confirmingSelection.current = false;
+        }
+      },
       clearSelection() {
+        preparedSelection.current = null;
         utils.current?.removeGhostHighlight();
         window.getSelection()?.removeAllRanges();
       },
       selectComment(comment) {
+        preparedSelection.current = null;
         const highlight = highlights.find((h) => h.id === comment.id);
         if (highlight) utils.current?.scrollToHighlight(highlight);
       },
@@ -182,7 +220,19 @@ export function PdfWorkspace({
       </div>
       {notice}
       <div className="review__body">
-        <main className="stage">
+        <main
+          className="stage"
+          ref={stage}
+          onPointerDownCapture={(event) => {
+            // PDF部品のpointerdownは選択を消す。タッチではOSの選択ハンドルに任せる。
+            if (event.pointerType === "touch" && !areaMode)
+              event.stopPropagation();
+          }}
+          onPointerUpCapture={(event) => {
+            if (event.pointerType === "touch" && !areaMode)
+              event.stopPropagation();
+          }}
+        >
           {pdfSource && (
             <PdfLoader
               key={versionId}
@@ -210,7 +260,7 @@ export function PdfWorkspace({
                   pdfDocument={pdfDocument}
                   highlights={highlights}
                   pdfScaleValue={scale}
-                  onZoomChange={setZoom}
+                  onZoomChange={rememberZoom}
                   onSelection={handleSelection}
                   onRemoveGhostHighlight={() => onPending(null)}
                   enableAreaSelection={(e) => e.altKey}

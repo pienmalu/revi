@@ -54,11 +54,11 @@ export async function dueReminders(today = todayJst()): Promise<Reminder[]> {
   return out;
 }
 
-export async function markSent(
+export async function claimReminder(
   r: Pick<Reminder, "documentId" | "kind">,
   deadline: string,
 ) {
-  await db.recordReminder(r.documentId, r.kind, deadline);
+  return db.recordReminder(r.documentId, r.kind, deadline);
 }
 
 /** リマインドを送る。send に Slack への投稿を渡す（テストでは記録するだけの関数を渡す） */
@@ -71,11 +71,16 @@ export async function runReminders(
   for (const r of due) {
     const document = await db.getDocument(r.documentId);
     if (!document?.deadline) continue;
+    // DBの一意制約で送信権を取る。別の実行が先に取得していたら送らない。
+    if (!(await claimReminder(r, document.deadline))) continue;
     try {
-      if ((await send(r)) === false) continue;
-      await markSent(r, document.deadline);
+      if ((await send(r)) === false) {
+        await db.releaseReminder(r.documentId, r.kind, document.deadline);
+        continue;
+      }
       sent.push(r);
     } catch (err) {
+      await db.releaseReminder(r.documentId, r.kind, document.deadline);
       console.error("[reminders]", err);
     }
   }

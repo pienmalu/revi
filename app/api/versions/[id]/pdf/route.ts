@@ -1,10 +1,10 @@
 import { requireVersion } from "@/app/lib/documents";
 import { handle, HttpError } from "@/app/lib/http";
-import { getFile, pdfKey } from "@/app/lib/storage";
+import { getFileStream, pdfKey } from "@/app/lib/storage";
 
 export const GET = handle<{ id: string }>(async (req, { id }) => {
   const version = await requireVersion(id);
-  const file = await getFile(pdfKey(version.id));
+  const file = await getFileStream(pdfKey(version.id));
   if (!file) throw new HttpError(404, "PDF が見つかりません");
   const headers: Record<string, string> = {
     "Content-Type": "application/pdf",
@@ -14,5 +14,5 @@ export const GET = handle<{ id: string }>(async (req, { id }) => {
   if (req.nextUrl.searchParams.get("download"))
     headers["Content-Disposition"] =
       `attachment; filename*=UTF-8''${encodeURIComponent(version.filename)}`;
-  return new Response(new Uint8Array(file), { headers });
+  return new Response(file, { headers });
 });

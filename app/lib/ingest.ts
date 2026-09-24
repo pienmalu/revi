@@ -150,8 +150,15 @@ export async function ingestPdf(input: {
 
   const title = analysis.title || displayTitle(input.filename);
   const isNewDocument = !document;
+  // 保存できなかった新規資料をDBに残さない。
+  const versionId = db.newId();
+  await putFile(pdfKey(versionId), input.buffer);
   if (!document) {
     document = await db.createDocument({
+      // 同一PDFの初回登録が重なっても、同じ資料に集約する。
+      id: `pdf-${createHash("sha256")
+        .update(JSON.stringify([input.slack?.channel ?? null, sha256]))
+        .digest("hex")}`,
       title,
       normalizedTitle,
       slackChannel: input.slack?.channel,
@@ -162,9 +169,6 @@ export async function ingestPdf(input: {
     });
   }
 
-  // ファイルを先に保存し、保存に失敗した版をDBに残さない。
-  const versionId = db.newId();
-  await putFile(pdfKey(versionId), input.buffer);
   const added = await db.addVersion({
     id: versionId,
     documentId: document.id,

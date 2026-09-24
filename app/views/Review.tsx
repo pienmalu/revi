@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useFlash, useNav } from "@/app/lib/client/nav";
-import {
-  PdfWorkspace,
-  type PdfWorkspaceHandle,
-} from "@/app/components/PdfWorkspace";
+import type { PdfWorkspaceHandle } from "@/app/components/PdfWorkspace";
 import { useDocument } from "@/app/lib/client/use-document";
 import { useComments } from "@/app/lib/client/use-comments";
 import {
@@ -32,6 +30,11 @@ import { useAuthor } from "@/app/lib/client/author";
 import { askConfirm } from "@/app/components/Confirm";
 import { Icon } from "@/app/components/Icon";
 import { Jp } from "@/app/components/Jp";
+
+const PdfWorkspace = dynamic(
+  () => import("@/app/components/PdfWorkspace").then((m) => m.PdfWorkspace),
+  { ssr: false },
+);
 
 const isNarrow = () => window.matchMedia("(max-width: 899px)").matches;
 
@@ -452,6 +455,7 @@ function ReviewDocument({ documentId }: { documentId: string }) {
               <VersionMenu
                 documentId={documentId}
                 downloadUrl={`${api.pdfUrl(version.id)}?download=1`}
+                commentsDownloadUrl={`/api/versions/${version.id}/comments/markdown`}
                 versionNumber={version.number}
                 canSplit={doc.versions.length > 1}
                 onDelete={deleteVersion}
@@ -506,7 +510,11 @@ function ReviewDocument({ documentId }: { documentId: string }) {
             doc?.review.stage === "slides" ? "スライドの情報" : "原稿の情報"
           }
           info={info}
-          onToggle={() => setSheetOpen((o) => !o)}
+          onPrepareOpen={() => pdf.current?.prepareSelection()}
+          onToggle={() => {
+            if (!sheetOpen) pdf.current?.finishSelection();
+            setSheetOpen(!sheetOpen);
+          }}
           onFilter={setFilter}
           onSelect={selectFromPanel}
           onCreate={createComment}

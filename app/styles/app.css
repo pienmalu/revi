@@ -702,18 +702,28 @@ a.link-btn:hover {
     bottom: 0;
     left: 0;
     z-index: 30;
-    height: min(72dvh, 640px);
+    height: calc(var(--sheet-peek) + env(safe-area-inset-bottom));
+    min-height: calc(var(--sheet-peek) + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 12px);
     border-left: 0;
     border-radius: var(--radius-navigation) var(--radius-navigation) 0 0;
     box-shadow: var(--shadow-subtle);
-    transform: translateY(
-      calc(100% - var(--sheet-peek) - env(safe-area-inset-bottom))
-    );
-    transition: transform 220ms ease;
+    /* 下端を固定し、高さだけで開閉する。高さと%移動の同時補間は閉じ際に跳ねる。 */
+    transition: height 220ms ease;
+    overflow: hidden;
+  }
+
+  .panel--full {
+    --sheet-open-height: calc(100dvh - 12px);
+  }
+
+  .panel--dragging {
+    transition: none;
+    user-select: none;
   }
 
   .panel--open {
-    transform: translateY(0);
+    height: var(--sheet-height, var(--sheet-open-height, min(72dvh, 640px)));
   }
 
   .panel__handle {
@@ -729,6 +739,9 @@ a.link-btn:hover {
     background: none;
     cursor: pointer;
     text-align: left;
+    touch-action: none;
+    user-select: none;
+    cursor: ns-resize;
   }
 
   .panel__handle::before {
@@ -745,7 +758,7 @@ a.link-btn:hover {
 
   /* 開いたシートでは、すぐ下のタブと同じ見出しを繰り返さない（つまみだけ残して閉じるボタンにする） */
   .panel--open .panel__handle {
-    height: var(--spacing-24);
+    height: 44px;
   }
 
   .panel--open .panel__handle > * {
@@ -759,6 +772,12 @@ a.link-btn:hover {
   /* 閉じたシートの下に PDF の最後のページが隠れないようにする */
   .stage {
     padding-bottom: var(--sheet-peek);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
   }
 }
 

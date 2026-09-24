@@ -7,8 +7,13 @@ import { HttpError } from "./errors";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 
-const blobEnabled = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const blobEnabled = () => {
+  if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN)
+    throw new Error("Vercel では BLOB_READ_WRITE_TOKEN が必要です");
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+};
 const localDir = () =>
   process.env.FILES_DIR ?? path.join(process.cwd(), "data", "files");
 
@@ -53,20 +58,34 @@ export async function putFile(
 
 /** ファイルの中身。無ければ undefined */
 export async function getFile(key: string): Promise<Buffer | undefined> {
+  const stream = await getFileStream(key);
+  return stream
+    ? Buffer.from(await new Response(stream).arrayBuffer())
+    : undefined;
+}
+
+/** 配信用。PDF全体をメモリに載せず、そのままブラウザへ送る。 */
+export async function getFileStream(
+  key: string,
+): Promise<ReadableStream<Uint8Array> | undefined> {
   validateFileKey(key);
   if (blobEnabled()) {
     const { get } = await import("@vercel/blob");
     const result = await get(key, { access: "private" });
     if (!result?.stream) return undefined;
-    return Buffer.from(await new Response(result.stream).arrayBuffer());
+    return result.stream;
   }
   try {
-    return await fs.readFile(
+    const file = await fs.open(
       /* turbopackIgnore: true */ path.join(
         /* turbopackIgnore: true */ localDir(),
         key,
       ),
+      "r",
     );
+    return Readable.toWeb(
+      file.createReadStream(),
+    ) as ReadableStream<Uint8Array>;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     return undefined;

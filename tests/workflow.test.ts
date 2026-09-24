@@ -381,3 +381,27 @@ test("同じ原稿への同時登録は版番号を分け、同一PDFは重複�
   assert.equal(new Set(same.map((r) => r.version.id)).size, 1);
   assert.equal(same.filter((r) => !r.duplicate).length, 1);
 });
+
+test("定期処理が同時に動いても一つの通知は一度だけ送る", async () => {
+  const result = await ingestPdf({
+    buffer: makePdf(["Concurrent Reminder", ...paper(24)]),
+    filename: "concurrent-reminder.pdf",
+  });
+  await db.updatePaper(result.document.id, { deadline: "2026-07-01" });
+  let count = 0;
+  const send = async (r: Reminder) => {
+    if (r.documentId !== result.document.id) return false;
+    count++;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  };
+  const runs = await Promise.all(
+    Array.from({ length: 8 }, () => runReminders(send, "2026-07-02")),
+  );
+  assert.equal(count, 1);
+  assert.equal(
+    runs.flat().filter((r) => r.documentId === result.document.id).length,
+    1,
+  );
+  await runReminders(send, "2026-07-02");
+  assert.equal(count, 1);
+});

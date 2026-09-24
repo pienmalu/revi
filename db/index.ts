@@ -19,6 +19,8 @@ const cache = globalThis as unknown as { __reviDb?: Promise<Db> };
 
 async function connect(): Promise<Db> {
   const url = process.env.DATABASE_URL;
+  if (process.env.VERCEL && !url)
+    throw new Error("Vercel では DATABASE_URL が必要です");
   if (url) {
     const { neon } = await import("@neondatabase/serverless");
     const { drizzle } = await import("drizzle-orm/neon-http");

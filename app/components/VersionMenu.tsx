@@ -9,6 +9,7 @@ import { Jp } from "@/app/components/Jp";
 type Props = {
   documentId: string;
   downloadUrl: string;
+  commentsDownloadUrl: string;
   versionNumber: number;
   canSplit: boolean;
   onDelete(): void;
@@ -20,6 +21,7 @@ type Props = {
 export function VersionMenu({
   documentId,
   downloadUrl,
+  commentsDownloadUrl,
   versionNumber,
   canSplit,
   onDelete,
@@ -36,6 +38,7 @@ export function VersionMenu({
         label={<Icon name="ellipsis" />}
         items={[
           { label: "このPDFを保存", href: downloadUrl },
+          { label: "コメントをMarkdownで保存", href: commentsDownloadUrl },
           { label: "ほかの原稿の版にする…", onSelect: () => setPicking(true) },
           ...(canSplit
             ? [

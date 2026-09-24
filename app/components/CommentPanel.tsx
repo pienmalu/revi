@@ -13,6 +13,7 @@ import { DropMenu } from "@/app/components/DropMenu";
 import { Icon } from "@/app/components/Icon";
 import { askConfirm } from "@/app/components/Confirm";
 import { Jp } from "@/app/components/Jp";
+import { useBottomSheet } from "@/app/components/useBottomSheet";
 
 /** 保存前の選択。ghost は PDF 部品がゴーストとして描いているかどうか */
 export type Pending = {
@@ -37,6 +38,7 @@ type Props = {
   infoLabel: string;
   info: ReactNode;
   onToggle(): void;
+  onPrepareOpen(): void;
   onFilter(filter: Filter): void;
   onSelect(comment: Comment): void;
   onCreate(body: string): Promise<void>;
@@ -92,6 +94,12 @@ function byReadingOrder(a: Comment, b: Comment) {
 }
 
 export function CommentPanel(props: Props) {
+  const {
+    panelRef,
+    className: sheetClassName,
+    style: sheetStyle,
+    handle,
+  } = useBottomSheet(props.open, props.onToggle);
   const { comments, pending, filter } = props;
   const open = comments.filter((c) => c.status === "open").length;
   const done = comments.length - open;
@@ -124,14 +132,26 @@ export function CommentPanel(props: Props) {
 
   return (
     <aside
-      className={`panel ${props.open ? "panel--open" : ""}`}
+      ref={panelRef}
+      className={`panel${sheetClassName}`}
+      style={sheetStyle}
       aria-label={props.tab === "info" ? props.infoLabel : "コメント"}
     >
       <button
         className="panel__handle"
-        onClick={props.onToggle}
+        {...handle}
+        onPointerDownCapture={() => {
+          if (!props.open) props.onPrepareOpen();
+        }}
+        onKeyDownCapture={() => {
+          if (!props.open) props.onPrepareOpen();
+        }}
         aria-expanded={props.open}
-        aria-label={props.open ? "閉じる" : undefined}
+        aria-label={
+          props.open
+            ? "閉じる。上下にドラッグ、または矢印キーで高さを変更"
+            : "開く。上にドラッグ、または上矢印キーでも開きます"
+        }
       >
         <span className="panel__summary">
           {props.tab === "info"
@@ -246,7 +266,11 @@ function Composer({
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => ref.current?.focus({ preventScroll: true }), []);
+  useEffect(() => {
+    // スマホでは引用を確認してから入力する。開閉・ドラッグでキーボードを出さない。
+    if (!window.matchMedia("(max-width: 899px)").matches)
+      ref.current?.focus({ preventScroll: true });
+  }, []);
 
   async function submit() {
     if (!body.trim() || busy) return;

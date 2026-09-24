@@ -1,9 +1,17 @@
 import path from "node:path";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { pathToFileURL } from "node:url";
+import {
+  getDocument,
+  GlobalWorkerOptions,
+} from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 
 // 文字の対応表と標準フォントの場所。Next.js は server のコードをまとめ直すので、置き場所は作業場所から数える
 const pdfjsDir = path.join(process.cwd(), "node_modules", "pdfjs-dist");
+// サーバーコードをまとめた後も、解析用workerを実ファイルから読み込めるようにする。
+GlobalWorkerOptions.workerSrc = pathToFileURL(
+  path.join(pdfjsDir, "legacy", "build", "pdf.worker.mjs"),
+).href;
 
 export type Layout = "portrait" | "landscape";
 
@@ -89,6 +97,7 @@ export async function analyzePdf(buffer: Buffer): Promise<PdfAnalysis> {
   } catch (err) {
     if ((err as Error).name === "PasswordException")
       throw new PdfReadError("パスワード付きのPDFは登録できません");
+    console.error("[pdf] 解析の初期化に失敗しました", err);
     throw new PdfReadError("PDFを読み取れませんでした");
   }
   try {

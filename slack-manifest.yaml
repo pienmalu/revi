@@ -6,7 +6,7 @@ display_information:
   background_color: "#1d1d1f"
 features:
   bot_user:
-    display_name: れび
+    display_name: revi
     always_online: true
 oauth_config:
   scopes:

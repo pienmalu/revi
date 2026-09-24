@@ -140,6 +140,7 @@ export async function importedKeys(versionId: string) {
 // ---------- 原稿 ----------
 
 export async function createDocument(input: {
+  id?: string;
   title: string;
   normalizedTitle: string;
   slackChannel?: string;
@@ -148,10 +149,11 @@ export async function createDocument(input: {
   titleManual?: boolean;
 }) {
   const db = await getDb();
+  const id = input.id ?? newId();
   const [row] = await db
     .insert(documents)
     .values({
-      id: newId(),
+      id,
       title: input.title,
       normalized_title: input.normalizedTitle,
       slack_channel: input.slackChannel ?? null,
@@ -160,8 +162,9 @@ export async function createDocument(input: {
       created_at: now(),
       title_manual: input.titleManual ? 1 : 0,
     })
+    .onConflictDoNothing({ target: documents.id })
     .returning();
-  return row;
+  return row ?? (await getDocument(id))!;
 }
 
 export async function getDocument(id: string) {
@@ -913,8 +916,28 @@ export async function recordReminder(
   deadline: string,
 ) {
   const db = await getDb();
-  await db
+  const claimed = await db
     .insert(reminders_sent)
     .values({ document_id: documentId, kind, deadline, sent_at: now() })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning();
+  return claimed.length > 0;
+}
+
+/** 送信に失敗した通知だけ、次の実行で再試行できるようにする。 */
+export async function releaseReminder(
+  documentId: string,
+  kind: string,
+  deadline: string,
+) {
+  const db = await getDb();
+  await db
+    .delete(reminders_sent)
+    .where(
+      and(
+        eq(reminders_sent.document_id, documentId),
+        eq(reminders_sent.kind, kind),
+        eq(reminders_sent.deadline, deadline),
+      ),
+    );
 }
