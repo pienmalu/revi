@@ -1,0 +1,57 @@
+{
+  "name": "revi",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/copy-pdfjs.mjs",
+    "predev": "node scripts/copy-pdfjs.mjs",
+    "prebuild": "node scripts/copy-pdfjs.mjs",
+    "dev": "next dev --turbo -p 3000",
+    "slack:dev": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/slack-dev.ts",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
+    "seed:samples": "node --env-file-if-exists=.env.local --import tsx scripts/seed-samples.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@slack/web-api": "^8.1.1",
+    "@vercel/blob": "^2.8.0",
+    "budoux": "^0.9.2",
+    "drizzle-orm": "^0.45.3",
+    "exceljs": "^4.4.0",
+    "next": "~16.3.6",
+    "pdfjs-dist": "4.10.38",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-pdf-highlighter-plus": "1.3.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@slack/socket-mode": "^3.0.1",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "~16.3.6",
+    "eslint-config-prettier": "^10.1.8",
+    "pdf-lib": "^1.17.1",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "undici": "^7.25.0"
+  }
+}

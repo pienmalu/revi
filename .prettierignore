@@ -1,0 +1,9 @@
+.next
+node_modules
+data
+db/migrations
+pnpm-lock.yaml
+app/styles/vendor
+
+.pnpm-store
+output

@@ -1,0 +1,9 @@
+node_modules
+.next
+.pnpm-store
+data
+.env*
+!.env.example
+.claude
+output
+.git

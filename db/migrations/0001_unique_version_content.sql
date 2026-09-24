@@ -1,0 +1,1 @@
+ALTER TABLE "versions" ADD CONSTRAINT "versions_document_sha" UNIQUE("document_id","sha256");

@@ -1,0 +1,27 @@
+# 手元で試す用（pnpm slack:dev）。本番とは別の Slack アプリとして作る（テスト用のチャンネルにだけ招待する）
+display_information:
+  name: れび (dev)
+  description: れびの手元の開発用
+  background_color: "#707070"
+features:
+  bot_user:
+    display_name: れび (dev)
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - groups:history
+      - files:read
+      - chat:write
+      - users:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

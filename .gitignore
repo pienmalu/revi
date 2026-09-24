@@ -1,0 +1,16 @@
+node_modules
+.DS_Store
+.next
+data
+.env
+.env.local
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+public/pdfjs
+app/styles/vendor
+
+.pnpm-store
+output
+.env.*
+!.env.example

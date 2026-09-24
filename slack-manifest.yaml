@@ -1,0 +1,30 @@
+# 本番（Vercel）用。Slack の「Create New App → From an app manifest」にこの内容を貼り付ける。
+# <あなたのアドレス> は Vercel のアドレス（例 revi.vercel.app）に置き換える
+display_information:
+  name: れび
+  description: Slackに送られた原稿のPDFを版ごとに登録し、共著者の確認と提出の報告をまとめます
+  background_color: "#1d1d1f"
+features:
+  bot_user:
+    display_name: れび
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - channels:history # 公開チャンネルの PDF 投稿を受け取る
+      - groups:history # 非公開チャンネルの PDF 投稿を受け取る
+      - files:read # PDF と受領メールをダウンロードする
+      - chat:write # スレッドとチャンネルに投稿する
+      - users:read # 押した人・送った人の名前を調べる
+settings:
+  event_subscriptions:
+    request_url: https://<あなたのアドレス>/api/slack
+    bot_events:
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+    request_url: https://<あなたのアドレス>/api/slack
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
